@@ -1,0 +1,596 @@
+package employee;
+
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.InputMismatchException;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
+
+class Employee implements Serializable {
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	private String employeeId;
+    private String name;
+    private String department;
+    private int annualLeaveBalance;
+    private int sickLeaveBalance;
+    private int emergencyLeaveBalance;
+
+    public Employee(String employeeId, String name, String department, 
+                   int annualLeave, int sickLeave, int emergencyLeave) {
+        this.employeeId = employeeId;
+        this.name = name;
+        this.department = department;
+        this.annualLeaveBalance = annualLeave;
+        this.sickLeaveBalance = sickLeave;
+        this.emergencyLeaveBalance = emergencyLeave;
+    }
+
+    // Getters
+    public String getEmployeeId() { return employeeId; }
+    public String getName() { return name; }
+    public String getDepartment() { return department; }
+    public int getAnnualLeaveBalance() { return annualLeaveBalance; }
+    public int getSickLeaveBalance() { return sickLeaveBalance; }
+    public int getEmergencyLeaveBalance() { return emergencyLeaveBalance; }
+
+    // Setters for leave balances
+    public void deductAnnualLeave(int days) { annualLeaveBalance -= days; }
+    public void deductSickLeave(int days) { sickLeaveBalance -= days; }
+    public void deductEmergencyLeave(int days) { emergencyLeaveBalance -= days; }
+
+    @Override
+    public String toString() {
+        return String.format("ID: %-5s | Name: %-15s | Dept: %-10s | Annual: %2d | Sick: %2d | Emergency: %2d",
+                employeeId, name, department, annualLeaveBalance, sickLeaveBalance, emergencyLeaveBalance);
+    }
+}
+
+class LeaveRequest implements Serializable {
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	private String requestId;
+    private String employeeId;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private String leaveType;
+    private String reason;
+    private String status; // Pending, Approved, Rejected
+    private LocalDate requestDate;
+
+    public LeaveRequest(String requestId, String employeeId, LocalDate startDate, 
+                       LocalDate endDate, String leaveType, String reason) {
+        this.requestId = requestId;
+        this.employeeId = employeeId;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.leaveType = leaveType;
+        this.reason = reason;
+        this.status = "Pending";
+        this.requestDate = LocalDate.now();
+    }
+
+    // Getters
+    public String getRequestId() { return requestId; }
+    public String getEmployeeId() { return employeeId; }
+    public LocalDate getStartDate() { return startDate; }
+    public LocalDate getEndDate() { return endDate; }
+    public String getLeaveType() { return leaveType; }
+    public String getReason() { return reason; }
+    public String getStatus() { return status; }
+    public LocalDate getRequestDate() { return requestDate; }
+
+    public void setStatus(String status) { this.status = status; }
+
+    public int getLeaveDays() {
+        return (int) ChronoUnit.DAYS.between(startDate, endDate) + 1;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("ReqID: %-6s | EmpID: %-5s | Type: %-9s | Days: %2d | %s to %s | Status: %-8s | Reason: %s",
+                requestId, employeeId, leaveType, getLeaveDays(), startDate, endDate, status, reason);
+    }
+}
+
+class EmployeeLeave {
+    private static Map<String, Employee> employees = new HashMap<>();
+    private static List<LeaveRequest> leaveRequests = new ArrayList<>();
+    private static Scanner scanner = new Scanner(System.in);
+    private static int requestCounter = 1;
+    private static final String DATA_FILE = "leave_system_data.ser";
+
+    public static void main(String[] args) {
+        loadData();
+        
+        System.out.println("=============================================");
+        System.out.println("   EMPLOYEE LEAVE MANAGEMENT SYSTEM");
+        System.out.println("          CodeAlpha Internship");
+        System.out.println("=============================================");
+
+        boolean running = true;
+        while (running) {
+            System.out.println("\nMAIN MENU");
+            System.out.println("1. Employee Login");
+            System.out.println("2. Manager Login");
+            System.out.println("3. Exit System");
+            System.out.print("Enter your choice: ");
+
+            int choice = getIntInput(1, 3);
+
+            switch (choice) {
+                case 1:
+                    employeeMenu();
+                    break;
+                case 2:
+                    managerMenu();
+                    break;
+                case 3:
+                    running = false;
+                    break;
+            }
+        }
+        
+        saveData();
+        scanner.close();
+        System.out.println("\nThank you for using the Employee Leave Management System!");
+    }
+
+    private static void employeeMenu() {
+        System.out.print("\nEnter your Employee ID: ");
+        String empId = scanner.nextLine().trim().toUpperCase();
+        Employee employee = employees.get(empId);
+
+        if (employee == null) {
+            System.out.println("Employee not found. Please contact HR.");
+            return;
+        }
+
+        System.out.println("\nWelcome, " + employee.getName() + "!");
+        
+        boolean back = false;
+        while (!back) {
+            System.out.println("\nEMPLOYEE MENU");
+            System.out.println("1. View Leave Balances");
+            System.out.println("2. Apply for Leave");
+            System.out.println("3. View My Leave Requests");
+            System.out.println("4. Back to Main Menu");
+            System.out.print("Enter your choice: ");
+
+            int choice = getIntInput(1, 4);
+
+            switch (choice) {
+                case 1:
+                    viewLeaveBalances(employee);
+                    break;
+                case 2:
+                    applyForLeave(employee);
+                    break;
+                case 3:
+                    viewEmployeeLeaveRequests(empId);
+                    break;
+                case 4:
+                    back = true;
+                    break;
+            }
+        }
+    }
+
+    private static void viewLeaveBalances(Employee employee) {
+        System.out.println("\nYOUR LEAVE BALANCES");
+        System.out.println("Annual Leave:    " + employee.getAnnualLeaveBalance() + " days");
+        System.out.println("Sick Leave:      " + employee.getSickLeaveBalance() + " days");
+        System.out.println("Emergency Leave: " + employee.getEmergencyLeaveBalance() + " days");
+    }
+
+    private static void applyForLeave(Employee employee) {
+        System.out.println("\nAPPLY FOR LEAVE");
+        
+        // Get leave type
+        System.out.println("Leave Types:");
+        System.out.println("1. Annual Leave");
+        System.out.println("2. Sick Leave");
+        System.out.println("3. Emergency Leave");
+        System.out.print("Select leave type (1-3): ");
+        int leaveTypeChoice = getIntInput(1, 3);
+        
+        String leaveType = "";
+        int availableDays = 0;
+        
+        switch(leaveTypeChoice) {
+            case 1:
+                leaveType = "Annual";
+                availableDays = employee.getAnnualLeaveBalance();
+                break;
+            case 2:
+                leaveType = "Sick";
+                availableDays = employee.getSickLeaveBalance();
+                break;
+            case 3:
+                leaveType = "Emergency";
+                availableDays = employee.getEmergencyLeaveBalance();
+                break;
+        }
+        
+        if (availableDays <= 0) {
+            System.out.println("You have no " + leaveType + " leave days available.");
+            return;
+        }
+        
+        // Get dates
+        LocalDate startDate = getDateInput("Enter start date (YYYY-MM-DD): ");
+        LocalDate endDate = getDateInput("Enter end date (YYYY-MM-DD): ");
+        
+        if (endDate.isBefore(startDate)) {
+            System.out.println("End date cannot be before start date.");
+            return;
+        }
+        
+        int leaveDays = (int) ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        
+        if (leaveDays > availableDays) {
+            System.out.println("Insufficient " + leaveType + " leave balance. You have only " + 
+                             availableDays + " days available.");
+            return;
+        }
+        
+        System.out.print("Enter reason for leave: ");
+        String reason = scanner.nextLine();
+        
+        String requestId = "REQ" + String.format("%03d", requestCounter++);
+        LeaveRequest request = new LeaveRequest(requestId, employee.getEmployeeId(), 
+                                              startDate, endDate, leaveType, reason);
+        leaveRequests.add(request);
+        
+        System.out.println("\nLeave request submitted successfully!");
+        System.out.println("Request ID: " + requestId);
+        System.out.println("Leave Type: " + leaveType);
+        System.out.println("Duration: " + leaveDays + " days (" + startDate + " to " + endDate + ")");
+    }
+
+    private static void viewEmployeeLeaveRequests(String empId) {
+        System.out.println("\nYOUR LEAVE REQUESTS");
+        System.out.println("-------------------------------------------------------------------------------------------");
+        System.out.printf("%-8s | %-9s | %-6s | %-11s | %-15s | %-8s%n", 
+                         "Req ID", "Type", "Days", "Dates", "Status", "Reason");
+        System.out.println("-------------------------------------------------------------------------------------------");
+        
+        boolean found = false;
+        for (LeaveRequest request : leaveRequests) {
+            if (request.getEmployeeId().equals(empId)) {
+                System.out.printf("%-8s | %-9s | %5d | %s to %s | %-15s | %s%n",
+                        request.getRequestId(),
+                        request.getLeaveType(),
+                        request.getLeaveDays(),
+                        request.getStartDate(),
+                        request.getEndDate(),
+                        request.getStatus(),
+                        request.getReason());
+                found = true;
+            }
+        }
+        
+        if (!found) {
+            System.out.println("No leave requests found.");
+        }
+    }
+
+    private static void managerMenu() {
+        System.out.println("\nMANAGER DASHBOARD");
+        
+        boolean back = false;
+        while (!back) {
+            System.out.println("\nMANAGER MENU");
+            System.out.println("1. View All Employees");
+            System.out.println("2. View Pending Leave Requests");
+            System.out.println("3. Process Leave Request");
+            System.out.println("4. Add New Employee");
+            System.out.println("5. Generate Leave Report");
+            System.out.println("6. Back to Main Menu");
+            System.out.print("Enter your choice: ");
+
+            int choice = getIntInput(1, 6);
+
+            switch (choice) {
+                case 1:
+                    viewAllEmployees();
+                    break;
+                case 2:
+                    viewPendingRequests();
+                    break;
+                case 3:
+                    processLeaveRequest();
+                    break;
+                case 4:
+                    addNewEmployee();
+                    break;
+                case 5:
+                    generateLeaveReport();
+                    break;
+                case 6:
+                    back = true;
+                    break;
+            }
+        }
+    }
+
+    private static void viewAllEmployees() {
+        System.out.println("\nEMPLOYEE LIST");
+        System.out.println("------------------------------------------------------------------------------------------");
+        System.out.printf("%-5s | %-15s | %-10s | %7s | %5s | %9s%n", 
+                         "ID", "Name", "Department", "Annual", "Sick", "Emergency");
+        System.out.println("------------------------------------------------------------------------------------------");
+        
+        for (Employee emp : employees.values()) {
+            System.out.println(emp);
+        }
+    }
+
+    private static void viewPendingRequests() {
+        System.out.println("\nPENDING LEAVE REQUESTS");
+        System.out.println("--------------------------------------------------------------------------------------------------------");
+        System.out.printf("%-8s | %-5s | %-15s | %-9s | %5s | %-11s | %s%n", 
+                         "Req ID", "EmpID", "Name", "Type", "Days", "Dates", "Reason");
+        System.out.println("--------------------------------------------------------------------------------------------------------");
+        
+        boolean found = false;
+        for (LeaveRequest request : leaveRequests) {
+            if (request.getStatus().equals("Pending")) {
+                Employee emp = employees.get(request.getEmployeeId());
+                System.out.printf("%-8s | %-5s | %-15s | %-9s | %5d | %s to %s | %s%n",
+                        request.getRequestId(),
+                        request.getEmployeeId(),
+                        emp.getName(),
+                        request.getLeaveType(),
+                        request.getLeaveDays(),
+                        request.getStartDate(),
+                        request.getEndDate(),
+                        request.getReason());
+                found = true;
+            }
+        }
+        
+        if (!found) {
+            System.out.println("No pending leave requests.");
+        }
+    }
+
+    private static void processLeaveRequest() {
+        System.out.print("\nEnter Request ID to process: ");
+        String reqId = scanner.nextLine().trim().toUpperCase();
+        
+        LeaveRequest request = null;
+        for (LeaveRequest req : leaveRequests) {
+            if (req.getRequestId().equals(reqId)) {
+                request = req;
+                break;
+            }
+        }
+        
+        if (request == null) {
+            System.out.println("Request not found.");
+            return;
+        }
+        
+        if (!request.getStatus().equals("Pending")) {
+            System.out.println("This request has already been processed.");
+            return;
+        }
+        
+        Employee employee = employees.get(request.getEmployeeId());
+        
+        System.out.println("\nREQUEST DETAILS");
+        System.out.println("Employee:    " + employee.getName() + " (" + employee.getEmployeeId() + ")");
+        System.out.println("Leave Type:  " + request.getLeaveType());
+        System.out.println("Dates:       " + request.getStartDate() + " to " + request.getEndDate());
+        System.out.println("Days:        " + request.getLeaveDays());
+        System.out.println("Reason:      " + request.getReason());
+        System.out.println("Applied on:  " + request.getRequestDate());
+        
+        System.out.print("\nApprove (A) or Reject (R) this request? ");
+        String decision = scanner.nextLine().trim().toUpperCase();
+        
+        if (decision.equals("A")) {
+            int leaveDays = request.getLeaveDays();
+            
+            switch(request.getLeaveType()) {
+                case "Annual":
+                    if (leaveDays > employee.getAnnualLeaveBalance()) {
+                        System.out.println("Cannot approve. Employee has insufficient Annual leave balance.");
+                        return;
+                    }
+                    employee.deductAnnualLeave(leaveDays);
+                    break;
+                case "Sick":
+                    if (leaveDays > employee.getSickLeaveBalance()) {
+                        System.out.println("Cannot approve. Employee has insufficient Sick leave balance.");
+                        return;
+                    }
+                    employee.deductSickLeave(leaveDays);
+                    break;
+                case "Emergency":
+                    if (leaveDays > employee.getEmergencyLeaveBalance()) {
+                        System.out.println("Cannot approve. Employee has insufficient Emergency leave balance.");
+                        return;
+                    }
+                    employee.deductEmergencyLeave(leaveDays);
+                    break;
+            }
+            
+            request.setStatus("Approved");
+            System.out.println("Request approved. Leave balance updated.");
+        } 
+        else if (decision.equals("R")) {
+            request.setStatus("Rejected");
+            System.out.print("Enter rejection reason: ");
+            String reason = scanner.nextLine();
+            System.out.println("Request rejected with reason: " + reason);
+        } 
+        else {
+            System.out.println("Invalid choice. No changes made.");
+        }
+    }
+
+    private static void addNewEmployee() {
+        System.out.println("\nADD NEW EMPLOYEE");
+        
+        System.out.print("Enter Employee ID: ");
+        String empId = scanner.nextLine().trim().toUpperCase();
+        
+        if (employees.containsKey(empId)) {
+            System.out.println("Employee ID already exists.");
+            return;
+        }
+        
+        System.out.print("Enter Employee Name: ");
+        String name = scanner.nextLine();
+        
+        System.out.print("Enter Department: ");
+        String dept = scanner.nextLine();
+        
+        System.out.print("Enter Annual Leave Balance: ");
+        int annual = getIntInput(0, 365);
+        
+        System.out.print("Enter Sick Leave Balance: ");
+        int sick = getIntInput(0, 365);
+        
+        System.out.print("Enter Emergency Leave Balance: ");
+        int emergency = getIntInput(0, 365);
+        
+        Employee newEmployee = new Employee(empId, name, dept, annual, sick, emergency);
+        employees.put(empId, newEmployee);
+        
+        System.out.println("\nNew employee added successfully!");
+        System.out.println(newEmployee);
+    }
+
+    private static void generateLeaveReport() {
+        System.out.println("\nLEAVE REPORT");
+        System.out.println("1. All Leave Requests");
+        System.out.println("2. Approved Leaves");
+        System.out.println("3. Rejected Leaves");
+        System.out.println("4. Leaves by Employee");
+        System.out.print("Select report type (1-4): ");
+        
+        int choice = getIntInput(1, 4);
+        
+        System.out.println("\nLEAVE REPORT");
+        System.out.println("--------------------------------------------------------------------------------------------------------");
+        System.out.printf("%-8s | %-5s | %-15s | %-9s | %5s | %-11s | %-8s | %s%n", 
+                         "Req ID", "EmpID", "Name", "Type", "Days", "Dates", "Status", "Reason");
+        System.out.println("--------------------------------------------------------------------------------------------------------");
+        
+        for (LeaveRequest request : leaveRequests) {
+            Employee emp = employees.get(request.getEmployeeId());
+            
+            boolean include = false;
+            switch(choice) {
+                case 1: include = true; break;
+                case 2: include = request.getStatus().equals("Approved"); break;
+                case 3: include = request.getStatus().equals("Rejected"); break;
+                case 4: 
+                    System.out.print("Enter Employee ID: ");
+                    String empId = scanner.nextLine().trim().toUpperCase();
+                    include = request.getEmployeeId().equals(empId);
+                    break;
+            }
+            
+            if (include) {
+                System.out.printf("%-8s | %-5s | %-15s | %-9s | %5d | %s to %s | %-8s | %s%n",
+                        request.getRequestId(),
+                        request.getEmployeeId(),
+                        emp.getName(),
+                        request.getLeaveType(),
+                        request.getLeaveDays(),
+                        request.getStartDate(),
+                        request.getEndDate(),
+                        request.getStatus(),
+                        request.getReason());
+            }
+        }
+    }
+
+    // Utility methods
+    private static int getIntInput(int min, int max) {
+        while (true) {
+            try {
+                int input = scanner.nextInt();
+                scanner.nextLine(); // Consume newline
+                if (input >= min && input <= max) {
+                    return input;
+                }
+                System.out.printf("Please enter a number between %d and %d: ", min, max);
+            } catch (InputMismatchException e) {
+                scanner.nextLine(); // Clear invalid input
+                System.out.printf("Invalid input. Please enter a number between %d and %d: ", min, max);
+            }
+        }
+    }
+
+    private static LocalDate getDateInput(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            try {
+                return LocalDate.parse(scanner.nextLine());
+            } catch (Exception e) {
+                System.out.println("Invalid date format. Please use YYYY-MM-DD.");
+            }
+        }
+    }
+
+    // Data persistence methods
+    @SuppressWarnings("unchecked")
+    private static void loadData() {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(DATA_FILE))) {
+            employees = (HashMap<String, Employee>) ois.readObject();
+            leaveRequests = (ArrayList<LeaveRequest>) ois.readObject();
+            requestCounter = ois.readInt();
+            System.out.println("System data loaded successfully.");
+        } catch (FileNotFoundException e) {
+            System.out.println("No existing data found. Starting with fresh system.");
+            initializeSampleData();
+        } catch (Exception e) {
+            System.out.println("Error loading data: " + e.getMessage());
+            System.out.println("Starting with fresh system.");
+            initializeSampleData();
+        }
+    }
+
+    private static void saveData() {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(DATA_FILE))) {
+            oos.writeObject(employees);
+            oos.writeObject(leaveRequests);
+            oos.writeInt(requestCounter);
+            System.out.println("System data saved successfully.");
+        } catch (Exception e) {
+            System.out.println("Error saving data: " + e.getMessage());
+        }
+    }
+
+    private static void initializeSampleData() {
+        employees.put("E001", new Employee("E001", "John Doe", "IT", 20, 10, 5));
+        employees.put("E002", new Employee("E002", "Jane Smith", "HR", 18, 12, 3));
+        employees.put("E003", new Employee("E003", "Bob Johnson", "Finance", 15, 8, 2));
+        
+        LocalDate today = LocalDate.now();
+        leaveRequests.add(new LeaveRequest("REQ001", "E001", today.plusDays(5), today.plusDays(7), "Annual", "Vacation"));
+        leaveRequests.add(new LeaveRequest("REQ002", "E002", today.minusDays(3), today.minusDays(1), "Sick", "Flu"));
+        leaveRequests.add(new LeaveRequest("REQ003", "E003", today.plusDays(10), today.plusDays(12), "Emergency", "Family matter"));
+        
+        requestCounter = 4;
+    }
+}
+
